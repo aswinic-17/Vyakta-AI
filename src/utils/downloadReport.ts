@@ -1,0 +1,296 @@
+import { ValidationReport, BrandPreset, ReviewDecision } from '../types';
+
+export function generateAuditReportHtml(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+): string {
+  const dateStr = new Date().toLocaleString();
+  const decisionColor =
+    decision.status === 'approved' ? '#059669' : decision.status === 'rejected' ? '#e11d48' : '#d97706';
+  const decisionBg =
+    decision.status === 'approved' ? '#ecfdf5' : decision.status === 'rejected' ? '#fff1f2' : '#fffbeb';
+
+  const findingsListHtml = report.findings
+    .map((f, idx) => {
+      const typeLabel =
+        f.type === 'prohibited_phrase'
+          ? 'Prohibited Phrase'
+          : f.type === 'evidence_not_found'
+          ? 'Evidence Not Found'
+          : f.type === 'tone_violation'
+          ? 'Tone Violation'
+          : f.type === 'missing_disclaimer'
+          ? 'Missing Disclaimer'
+          : 'Approved Terminology';
+
+      const statusBadge =
+        f.status === 'applied'
+          ? '<span style="color:#059669; background:#ecfdf5; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Correction Applied</span>'
+          : f.status === 'dismissed'
+          ? '<span style="color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Waived</span>'
+          : '<span style="color:#e11d48; background:#fff1f2; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Unresolved</span>';
+
+      return `
+      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafafa;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <strong style="color:#111827; font-size:13px;">${idx + 1}. ${f.title}</strong>
+            <span style="display:inline-block; margin-left:8px; font-size:11px; color:#4b5563; background:#e5e7eb; padding:2px 6px; border-radius:4px;">${typeLabel}</span>
+          </div>
+          <div>${statusBadge}</div>
+        </div>
+        <div style="font-size:12px; color:#4b5563; margin-bottom:6px;"><strong>Flagged Text:</strong> <span style="font-family:monospace; background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:3px;">"${f.originalText}"</span></div>
+        <div style="font-size:12px; color:#374151; margin-bottom:6px;"><strong>Policy Citation:</strong> ${f.policyCitation}</div>
+        <div style="font-size:12px; color:#4b5563; margin-bottom:8px;"><strong>Issue Explanation:</strong> ${f.explanation}</div>
+        ${
+          f.suggestedRewrite
+            ? `<div style="font-size:12px; color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; padding:8px 10px; border-radius:6px;"><strong>Suggested Correction:</strong> ${f.suggestedRewrite}</div>`
+            : ''
+        }
+      </div>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vyakta AI Audit Report - ${documentTitle}</title>
+  <style>
+    @media print {
+      body { margin: 20px; font-size: 12px; }
+      .no-print { display: none !important; }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 40px auto; max-width: 860px; color: #1f2937; line-height: 1.5; background: #fff; }
+    .header { border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .title { font-size: 22px; font-weight: 800; color: #111827; margin: 0; }
+    .subtitle { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    .badge-decision { display: inline-block; padding: 6px 14px; border-radius: 9999px; font-weight: 700; font-size: 13px; text-transform: uppercase; background: ${decisionBg}; color: ${decisionColor}; border: 1px solid ${decisionColor}40; }
+    .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+    .stat { background: #fff; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 800; color: #111827; }
+    .stat-lbl { font-size: 11px; text-transform: uppercase; color: #6b7280; font-weight: 600; margin-top: 2px; }
+    .content-box { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: #1f2937; }
+    h2 { font-size: 15px; font-weight: 700; color: #111827; margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 class="title">Brand Content Governance Audit Report</h1>
+      <div class="subtitle">Generated by Vyakta AI • ${dateStr}</div>
+    </div>
+    <div class="badge-decision">
+      Status: ${decision.status.toUpperCase()}
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="stat">
+      <div class="stat-val">${brand.name}</div>
+      <div class="stat-lbl">Governing Brand</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${report.overallScore}%</div>
+      <div class="stat-lbl">Compliance Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${report.findings.length}</div>
+      <div class="stat-lbl">Issues Evaluated</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; font-size:14px; color:#111827;">Reviewer Decision & Feedback</h3>
+    <div style="font-size:13px; color:#374151; margin-bottom:6px;"><strong>Reviewer:</strong> ${decision.reviewerName || 'Editorial Reviewer'}</div>
+    <div style="font-size:13px; color:#374151; margin-bottom:6px;"><strong>Decision Date:</strong> ${decision.decidedAt || dateStr}</div>
+    <div style="font-size:13px; color:#374151; background:#fff; border:1px solid #e5e7eb; padding:10px; border-radius:6px; margin-top:8px;">
+      <strong>Feedback:</strong> ${decision.reviewerNotes || 'Content evaluated under active brand guidelines.'}
+    </div>
+  </div>
+
+  <h2>Reviewed Content Draft: "${documentTitle}"</h2>
+  <div class="content-box">${content}</div>
+
+  <h2>Policy Findings & Suggested Corrections (${report.findings.length})</h2>
+  ${findingsListHtml || '<p style="font-size:13px; color:#6b7280;">No violations detected.</p>'}
+
+  <div style="margin-top:40px; border-top:1px solid #e5e7eb; padding-top:14px; font-size:11px; color:#9ca3af; text-align:center;">
+    Vyakta AI Pre-Publication Brand Governance & Content Review System
+  </div>
+</body>
+</html>`;
+}
+
+// Download as HTML
+export function downloadAuditReportHtml(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+) {
+  const html = generateAuditReportHtml(report, brand, content, documentTitle, decision);
+  downloadBlob(html, 'text/html;charset=utf-8;', getFileName(documentTitle, 'html'));
+}
+
+// Download as Microsoft Word compatible (.doc)
+export function downloadAuditReportDoc(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+) {
+  const html = generateAuditReportHtml(report, brand, content, documentTitle, decision);
+  downloadBlob(html, 'application/msword;charset=utf-8;', getFileName(documentTitle, 'doc'));
+}
+
+// Download as Plain Text / Markdown (.md)
+export function downloadAuditReportMarkdown(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+) {
+  const dateStr = new Date().toLocaleString();
+  let md = `# Brand Content Governance Audit Report\n\n`;
+  md += `**Document Title:** ${documentTitle}\n`;
+  md += `**Governing Brand:** ${brand.name} (${brand.industry})\n`;
+  md += `**Evaluation Date:** ${dateStr}\n`;
+  md += `**Review Decision:** ${decision.status.toUpperCase()}\n`;
+  md += `**Reviewer:** ${decision.reviewerName || 'Editorial Reviewer'}\n`;
+  md += `**Compliance Score:** ${report.overallScore}%\n`;
+  md += `**Reviewer Feedback:** ${decision.reviewerNotes || 'Content reviewed under brand guidelines.'}\n\n`;
+
+  md += `## Evaluated Content\n\n\`\`\`\n${content}\n\`\`\`\n\n`;
+
+  md += `## Findings & Suggested Corrections (${report.findings.length})\n\n`;
+  report.findings.forEach((f, idx) => {
+    md += `### ${idx + 1}. ${f.title} [${f.severity.toUpperCase()}]\n`;
+    md += `- **Type:** ${f.type}\n`;
+    md += `- **Flagged Text:** "${f.originalText}"\n`;
+    md += `- **Policy Citation:** ${f.policyCitation}\n`;
+    md += `- **Status:** ${f.status}\n`;
+    md += `- **Explanation:** ${f.explanation}\n`;
+    if (f.suggestedRewrite) {
+      md += `- **Suggested Correction:** ${f.suggestedRewrite}\n`;
+    }
+    md += `\n`;
+  });
+
+  md += `---\n*Generated by Vyakta AI Pre-Publication Brand Governance System*\n`;
+
+  downloadBlob(md, 'text/markdown;charset=utf-8;', getFileName(documentTitle, 'md'));
+}
+
+// Download as CSV Spreadsheet
+export function downloadAuditReportCsv(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+) {
+  const headers = [
+    'Issue #',
+    'Title',
+    'Category',
+    'Severity',
+    'Status',
+    'Flagged Excerpt',
+    'Policy Citation',
+    'Explanation',
+    'Suggested Correction',
+  ];
+
+  const rows = report.findings.map((f, i) => [
+    (i + 1).toString(),
+    f.title,
+    f.type,
+    f.severity,
+    f.status,
+    f.originalText,
+    f.policyCitation,
+    f.explanation,
+    f.suggestedRewrite || '',
+  ]);
+
+  const csvContent =
+    [headers, ...rows]
+      .map((row) => row.map((cell) => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+  downloadBlob(csvContent, 'text/csv;charset=utf-8;', getFileName(documentTitle, 'csv'));
+}
+
+// Download as Structured JSON
+export function downloadAuditReportJson(
+  report: ValidationReport,
+  brand: BrandPreset,
+  content: string,
+  documentTitle: string,
+  decision: ReviewDecision
+) {
+  const exportData = {
+    documentTitle,
+    generatedAt: new Date().toISOString(),
+    governingBrand: {
+      id: brand.id,
+      name: brand.name,
+      industry: brand.industry,
+    },
+    decision,
+    complianceScore: report.overallScore,
+    status: report.status,
+    metrics: report.metrics,
+    content,
+    findings: report.findings,
+  };
+
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  downloadBlob(jsonStr, 'application/json;charset=utf-8;', getFileName(documentTitle, 'json'));
+}
+
+function getFileName(title: string, extension: string): string {
+  const safeTitle = (title || 'audit-report').toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const date = new Date().toISOString().split('T')[0];
+  return `vyakta-audit-${safeTitle}-${date}.${extension}`;
+}
+
+function downloadBlob(content: string, mimeType: string, fileName: string) {
+  try {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1500);
+  } catch (err) {
+    console.warn('Blob download fallback to data URI:', err);
+    try {
+      const encoded = 'data:' + mimeType + ',' + encodeURIComponent(content);
+      const a = document.createElement('a');
+      a.href = encoded;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 500);
+    } catch (e2) {
+      console.error('All download strategies failed:', e2);
+    }
+  }
+}

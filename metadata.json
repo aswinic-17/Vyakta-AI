@@ -1,0 +1,7 @@
+{
+  "name": "Vyakta AI",
+  "description": "Enterprise Brand Governance & Hybrid Content Validation Engine for marketing and organizational copy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
